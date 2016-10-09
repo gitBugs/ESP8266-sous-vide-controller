@@ -7,11 +7,16 @@
 #undef MQTT_KEEPALIVE 
 #define MQTT_KEEPALIVE 60
 
-char wifissid[] = "xxxx";   // Wifi network name or ESSID/SSID
-char wifipwd[] = "xxxx";   // Wifi password
 
-char nodeprefix[] = "ESP8266-12-";   // Prefix for node name, rest will be mac address
-char mqttsrvr[] = "192.168.1.82";    // Ip address of mqtt broker
+
+//char wifissid[] = "xxxx";   // Wifi network name or ESSID/SSID
+//char wifipwd[] = "xxxx";   // Wifi password
+
+
+char nodeprefix[] = "sousVideBot";   // Prefix for node name, rest will be mac address
+char mqttsrvr[] = "192.168.1.80";    // Ip address of mqtt broker
+//char mqttsrvr[] = "10.3.11.164";    // Ip address of mqtt broker
+
 char mqttuid[] = "mqttusername";     // mqtt broker username
 char mqttpwd[] = "mqrrpassword";     // mqtt broker password
 
@@ -47,13 +52,13 @@ DallasTemperature sensors(&oneWire);
 //PID Setup
 //=================================================
 #include <PID_v1.h>
-#define RelayPin 13  //Using GPIO13 to control the relay. 
+#define RelayPin 12  //Using GPIO13 to control the relay. 
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,2,5,1, DIRECT); //Fiddle with the PID variables to better adapt algo to the slow cooker. Currently, I and D need increasing, P probably steady or down.
+PID myPID(&Input, &Output, &Setpoint,8,15,5, DIRECT); //Fiddle with the PID variables to better adapt algo to the slow cooker. Currently, I and D need increasing, P probably steady or down.
 
 int WindowSize = 10000; //length of the window/chunk of time we're considering, in ms. Longer = less power cycling of relay/slow cooker, probably a good thing. But also less fine control.
 unsigned long windowStartTime;
@@ -74,7 +79,7 @@ void setup(){
   windowStartTime = millis();
   
   //initialize the variables we're linked to
-  Setpoint = 62.5; // This is the temperature that the sous vide will aim for, in C. Someday, add ability to receive this over MQTT or web form?
+  Setpoint = 52; // This is the temperature that the sous vide will aim for, in C. Someday, add ability to receive this over MQTT or web form?
 
   //tell the PID to range between 0 and the full window size
   myPID.SetOutputLimits(0, WindowSize);
@@ -95,8 +100,8 @@ String macToStr(const uint8_t* mac)
    return result;
 }
 void WifiConnect() {
-  int timout = 30;
-  
+  int timout = 10;
+  WiFi.mode(WIFI_STA);
   Serial.print("Wifi connecting to ");
   Serial.println(wifissid);
   WiFi.begin(wifissid, wifipwd);
@@ -144,9 +149,8 @@ void BrokerConnect() {
       }
    } else {
       Serial.println("MQTT connect failed, reset and try again...");
-      //abort();
    }
-  
+
    return; 
 }  
 
@@ -178,7 +182,15 @@ void loop()
   if(Output < millis() - windowStartTime) digitalWrite(RelayPin,HIGH);
   else digitalWrite(RelayPin,LOW);
 
+  if (WiFi.status() != WL_CONNECTED){
+    WifiConnect();
+  }
+  if (!client.connected()){
+    BrokerConnect();
+  }
 }
+
+
 
 
 
